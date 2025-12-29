@@ -1,0 +1,65 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  REGISTRY_URL: "192.168.1.60:5000"
+  IMAGE_NAME: "$REGISTRY_URL/discbot"
+  K8S_NAMESPACE: "discbot"
+
+.kaniko-auth: &kaniko-auth |
+  if [ -n "${REGISTRY_USER:-}" ] && [ -n "${REGISTRY_PASSWORD:-}" ]; then
+    mkdir -p /kaniko/.docker
+    cat <<EOF >/kaniko/.docker/config.json
+    {
+      "auths": {
+        "${REGISTRY_URL}": {
+          "username": "${REGISTRY_USER}",
+          "password": "${REGISTRY_PASSWORD}"
+        }
+      }
+    }
+    EOF
+  fi
+
+build-image:
+  stage: build
+  tags:
+    - kube
+  image:
+    name: gcr.io/kaniko-project/executor:latest
+    entrypoint: [""]
+  variables:
+    DOCKER_CONFIG: /kaniko/.docker/
+  script:
+    - *kaniko-auth
+    - export VERSION_TAG="v${CI_PIPELINE_IID}"
+    - |
+      DESTINATIONS="--destination ${IMAGE_NAME}:${VERSION_TAG}"
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        DESTINATIONS="${DESTINATIONS} --destination ${IMAGE_NAME}:latest"
+      fi
+      /kaniko/executor \
+        --context "${CI_PROJECT_DIR}" \
+        --dockerfile "${CI_PROJECT_DIR}/dockerfile" \
+        ${DESTINATIONS} \
+        --skip-tls-verify \
+        --insecure
+
+deploy-prod:
+  stage: deploy
+  tags:
+    - kube
+  image:
+    name: bitnami/kubectl:1.29
+    entrypoint: [""]
+  needs:
+    - job: build-image
+  script:
+    - export TARGET_TAG="${IMAGE_NAME}:v${CI_PIPELINE_IID}"
+    - kubectl -n "${K8S_NAMESPACE}" set image deploy/discbot discbot="${TARGET_TAG}" --record
+    - kubectl -n "${K8S_NAMESPACE}" rollout status deploy/discbot --timeout=180s
+  environment:
+    name: production
+  only:
+    - main

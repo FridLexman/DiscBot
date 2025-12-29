@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Env / secrets
+config.json
+.env
+.env.*
+
+# Virtual envs
+venv/
+.envrc
+
+# Data / runtime
+logs/
+data/
+.cache/
+*.log
+
+# Local tools
+.DS_Store

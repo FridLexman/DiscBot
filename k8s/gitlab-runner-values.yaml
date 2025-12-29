@@ -1,0 +1,32 @@
+gitlabUrl: http://gitlab-service.gitlab.svc.cluster.local/
+runnerRegistrationToken: "W6zPBSxSQDVUH8k1tvcd"
+runnerRegistrationTokenSecret: gitlab-runner-secret
+rbac:
+  create: true
+runners:
+  tags: kube
+  runUntagged: true
+  locked: false
+  helpers:
+    image: registry.gitlab.com/gitlab-org/gitlab-runner/gitlab-runner-helper:x86_64-latest
+  config: |
+    [[runners]]
+      name = "kubernetes-shared"
+      url = "http://gitlab.gitlab.svc.cluster.local/"
+      executor = "kubernetes"
+      [runners.kubernetes]
+        namespace = "gitlab"
+        poll_timeout = 600
+        helper_cpu_limit = "500m"
+        helper_memory_limit = "256Mi"
+        cpu_limit = "2"
+        memory_limit = "2Gi"
+        image = "alpine:3.19"
+        privileged = true
+        service_account = "gitlab-runner"
+        pod_annotations = { "runner.gitlab.com/description" = "kaniko + kubectl" }
+        [runners.kubernetes.node_selector]
+          "kubernetes.io/os" = "linux"
+      [runners.cache]
+        Type = "kubernetes"
+        Shared = true

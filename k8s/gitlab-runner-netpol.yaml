@@ -1,0 +1,52 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gitlab-runner-egress
+  namespace: gitlab
+spec:
+  podSelector:
+    matchLabels:
+      app: gitlab-runner
+  policyTypes:
+    - Egress
+  egress:
+    # DNS to kube-dns
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Kubernetes API server
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    # In-cluster GitLab service
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gitlab
+          podSelector:
+            matchLabels:
+              app: gitlab
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 22
+    # Local registry LoadBalancer
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.60/32
+      ports:
+        - protocol: TCP
+          port: 5000

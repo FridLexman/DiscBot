@@ -1,0 +1,12 @@
+{
+  "DISCORD_TOKEN": "your-bot-token-here",
+  "PREFIX": "/",
+  "FFMPEG_EXE": "ffmpeg",
+  "SPOTIFY_CLIENT_ID": "your-spotify-client-id",
+  "SPOTIFY_CLIENT_SECRET": "your-spotify-client-secret",
+  "OPENAI_API_KEY": "your-openai-key",
+  "OPENAI_MODEL": "gpt-3.5-turbo",
+  "OPENAI_BASE_URL": "https://api.openai.com/v1",
+  "LLM_BASE_URL": "http://llm-service.local:11434",
+  "LLM_MODEL": "llama3"
+}
