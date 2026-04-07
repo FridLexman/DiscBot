@@ -51,4 +51,3 @@ python main.py
 
 ## Security
 - No secrets are tracked. Provide your own tokens/keys via `config.json` or environment.
-- Enable secret scanning and push protection on your fork (GitHub settings).
