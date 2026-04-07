@@ -169,8 +169,9 @@ async def yt_extract(url: str, *, ytdl_opts: dict) -> Track:
 
     stream = _pick_stream(info)
     if not stream:
+        # Retry with android+web so yt-dlp can still return a stream when web-only gets SABR-gated.
         web_only = dict(ytdl_opts)
-        web_only["extractor_args"] = {"youtube": {"player_client": ["web"]}}
+        web_only["extractor_args"] = {"youtube": {"player_client": ["android", "web"]}}
         info2 = await _extract_with_retries(url, web_only)
         if info2 and "entries" in info2:
             info2 = info2["entries"][0]
@@ -1175,7 +1176,8 @@ class Music(commands.Cog):
     # ---------- Slash Commands ----------
     @app_commands.command(name="play", description="Play from YouTube or Spotify link/search")
     async def slash_play(self, inter: discord.Interaction, query: str):
-        await inter.response.defer(ephemeral=True)
+        if not inter.response.is_done():
+            await inter.response.defer(ephemeral=True)
         if not inter.guild or not inter.user.voice or not inter.user.voice.channel:
             return await inter.followup.send("Join a voice channel first.", ephemeral=True)
         p = self.get_player(inter.guild)

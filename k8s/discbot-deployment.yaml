@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discbot
+  namespace: discbot
+  labels:
+    app: discbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discbot
+  template:
+    metadata:
+      labels:
+        app: discbot
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: lapstack3
+      tolerations:
+        - key: role
+          operator: Equal
+          value: lowmem
+          effect: NoSchedule
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: discbot
+          image: 192.168.1.60:5000/discbot:v15.5
+          imagePullPolicy: IfNotPresent
+          workingDir: /app
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              RUNTIME_CFG="/tmp/discbot-config.json"
+              SOURCE_CFG="/app/config.json"
+              if [ ! -f "${SOURCE_CFG}" ]; then
+                SOURCE_CFG="/app/config.example.json"
+              fi
+              cp "${SOURCE_CFG}" "${RUNTIME_CFG}"
+              export CONFIG="${RUNTIME_CFG}"
+              python -c 'import json, os, pathlib, sys; path = pathlib.Path(os.environ["CONFIG"]); \
+                      sys.exit("Config file not found") if not path.exists() else None; \
+                      data = json.loads(path.read_text(encoding="utf-8")); \
+                      isinstance(data, dict) or sys.exit("Config must contain a JSON object"); \
+                      token = os.environ.get("DISCORD_TOKEN", "").strip(); \
+                      sys.exit("DISCORD_TOKEN environment variable is required") if not token else None; \
+                      data["DISCORD_TOKEN"] = token; \
+                      path.write_text(json.dumps(data, indent=2), encoding="utf-8")'
+              exec python /app/main.py
+          env:
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: discbot-secrets
+                  key: DISCORD_TOKEN
+            - name: BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: discbot-secrets
+                  key: DISCORD_TOKEN
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: discbot-secrets
+                  key: DISCORD_TOKEN
+            - name: FFMPEG_EXE
+              value: ffmpeg
+            - name: BOT_LOGO_URL
+              value: https://cdn.discordapp.com/attachments/519392105596977153/1447319272027193426/logo.png?ex=6937309c&is=6935df1c&hm=71c7f58d30768133d3204c2da386470ced7c7a86898c0a60f65ed370b81d7cb8&
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -r /proc/1/cmdline ]; then
+                    CMD="$(tr '\0' ' ' </proc/1/cmdline)"
+                    case "$CMD" in
+                      *python*|*main.py*) exit 0 ;;
+                      *) exit 1 ;;
+                    esac
+                  else
+                    exit 1
+                  fi
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -r /proc/1/cmdline ]; then
+                    CMD="$(tr '\0' ' ' </proc/1/cmdline)"
+                    case "$CMD" in
+                      *python*|*main.py*) exit 0 ;;
+                      *) exit 1 ;;
+                    esac
+                  else
+                    exit 1
+                  fi
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  if [ -r /proc/1/cmdline ]; then
+                    CMD="$(tr '\0' ' ' </proc/1/cmdline)"
+                    case "$CMD" in
+                      *python*|*main.py*) exit 0 ;;
+                      *) exit 1 ;;
+                    esac
+                  else
+                    exit 1
+                  fi
+            initialDelaySeconds: 30
+            periodSeconds: 30
